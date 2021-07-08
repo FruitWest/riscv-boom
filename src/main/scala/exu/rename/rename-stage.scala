@@ -84,6 +84,10 @@ abstract class AbstractRenameStage(
     val rbk_valids = Input(Vec(plWidth, Bool()))
     val rollback = Input(Bool())
 
+    // commit stage
+    val walk_valids = Input(Vec(plWidth, Bool()))
+    val walk_uops = Input(Vec(plWidth, new MicroOp()))
+
     val debug_rob_empty = Input(Bool())
     val debug = Output(new DebugRenameStageIO(numPhysRegs))
   })

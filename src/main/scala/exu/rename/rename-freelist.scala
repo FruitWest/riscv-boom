@@ -34,6 +34,9 @@ class RenameFreeList(
     // Pregs returned by the ROB.
     val dealloc_pregs = Input(Vec(plWidth, Valid(UInt(pregSz.W))))
 
+    // Pregs returned by the ROB.
+    val walk_pregs = Input(Vec(plWidth, Valid(UInt(pregSz.W))))
+
     // Branch info for starting new allocation lists.
     val ren_br_tags   = Input(Vec(plWidth, Valid(UInt(brTagSz.W))))
 
@@ -60,17 +63,18 @@ class RenameFreeList(
 
   // Masks that modify the freelist array.
   val sel_mask = (sels zip sel_fire) map { case (s,f) => s & Fill(n,f) } reduce(_|_)
-  val br_deallocs = br_alloc_lists(io.brupdate.b2.uop.br_tag) & Fill(n, io.brupdate.b2.mispredict)
-  val dealloc_mask = io.dealloc_pregs.map(d => UIntToOH(d.bits)(numPregs-1,0) & Fill(n,d.valid)).reduce(_|_) | br_deallocs
+  // val br_deallocs = br_alloc_lists(io.brupdate.b2.uop.br_tag) & Fill(n, io.brupdate.b2.mispredict)
+  val dealloc_mask = io.walk_pregs.map(d => UIntToOH(d.bits)(numPregs-1,0) & io.dealloc_pregs.map(d => UIntToOH(d.bits)(numPregs-1,0) & Fill(n,d.valid)).reduce(_|_) \
+  // | br_deallocs
 
-  val br_slots = VecInit(io.ren_br_tags.map(tag => tag.valid)).asUInt
-  // Create branch allocation lists.
-  for (i <- 0 until maxBrCount) {
-    val list_req = VecInit(io.ren_br_tags.map(tag => UIntToOH(tag.bits)(i))).asUInt & br_slots
-    val new_list = list_req.orR
-    br_alloc_lists(i) := Mux(new_list, Mux1H(list_req, alloc_masks.slice(1, plWidth+1)),
-                                       br_alloc_lists(i) & ~br_deallocs | alloc_masks(0))
-  }
+  // val br_slots = VecInit(io.ren_br_tags.map(tag => tag.valid)).asUInt
+  // // Create branch allocation lists.
+  // for (i <- 0 until maxBrCount) {
+  //   val list_req = VecInit(io.ren_br_tags.map(tag => UIntToOH(tag.bits)(i))).asUInt & br_slots
+  //   val new_list = list_req.orR
+  //   br_alloc_lists(i) := Mux(new_list, Mux1H(list_req, alloc_masks.slice(1, plWidth+1)),
+  //                                      br_alloc_lists(i) & ~br_deallocs | alloc_masks(0))
+  // }
 
   // Update the free list.
   free_list := (free_list & ~sel_mask | dealloc_mask) & ~(1.U(numPregs.W))

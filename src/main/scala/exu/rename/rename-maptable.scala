@@ -58,6 +58,8 @@ class RenameMapTable(
     // Remapping an ldst to a newly allocated pdst?
     val remap_reqs  = Input(Vec(plWidth, new RemapReq(lregSz, pregSz)))
 
+    val walk_reqs  = Input(Vec(plWidth, new RemapReq(lregSz, pregSz)))
+
     // Dispatching branches: need to take snapshots of table state.
     val ren_br_tags = Input(Vec(plWidth, Valid(UInt(brTagSz.W))))
 
@@ -74,8 +76,8 @@ class RenameMapTable(
   val remap_table = Wire(Vec(plWidth+1, Vec(numLregs, UInt(pregSz.W))))
 
   // Uops requesting changes to the map table.
-  val remap_pdsts = io.remap_reqs map (_.pdst)
-  val remap_ldsts_oh = io.remap_reqs map (req => UIntToOH(req.ldst) & Fill(numLregs, req.valid.asUInt))
+  val remap_pdsts = io.remap_reqs map (_.pdst) | io.walk_reqs map (_.pdst)
+  val remap_ldsts_oh = io.remap_reqs map (req => UIntToOH(req.ldst) & Fill(numLregs, req.valid.asUInt)) | io.walk_reqs map (req => UIntToOH(req.ldst) & Fill(numLregs, req.valid.asUInt))
 
   // Figure out the new mappings seen by each pipeline slot.
   for (i <- 0 until numLregs) {
@@ -100,10 +102,10 @@ class RenameMapTable(
     }
   }
 
-  when (io.brupdate.b2.mispredict) {
-    // Restore the map table to a branch snapshot.
-    map_table := br_snapshots(io.brupdate.b2.uop.br_tag)
-  } .otherwise {
+  // when (io.brupdate.b2.mispredict) {
+  //   // Restore the map table to a branch snapshot.
+  //   map_table := br_snapshots(io.brupdate.b2.uop.br_tag)
+  // } .otherwise {
     // Update mappings.
     map_table := remap_table(plWidth)
   }

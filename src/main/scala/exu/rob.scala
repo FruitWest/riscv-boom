@@ -87,6 +87,9 @@ class RobIo(
   // Commit stage (free resources; also used for rollback).
   val commit = Output(new CommitSignals())
 
+  // walk
+  val walk = Output(new WalkSignals())
+
   // tell the LSU that the head of the ROB is a load
   // (some loads can only execute once they are at the head of the ROB).
   val com_load_is_at_rob_head = Output(Bool())
@@ -132,6 +135,14 @@ class CommitSignals(implicit p: Parameters) extends BoomBundle
   val debug_wdata = Vec(retireWidth, UInt(xLen.W))
 }
 
+class WalkSignals(implicit p: Parameters) extends BoomBundle
+{
+  val valids      = Vec(retireWidth, Bool()) // These instructions may not correspond to an architecturally executed insn
+  val uops        = Vec(retireWidth, new MicroOp())
+
+  // These come a cycle later
+  val debug_insts = Vec(retireWidth, UInt(32.W))
+}
 /**
  * Bundle to communicate exceptions to CSRFile
  *
@@ -314,6 +325,9 @@ class Rob(
 
     val rob_debug_wdata = Mem(numRobRows, UInt(xLen.W))
 
+    val walk_uop       = Reg(Vec(numRobRows, new MicroOp()))
+    val rob_val        = RegInit(VecInit(Seq.fill(numRobRows){false.B}))
+
     //-----------------------------------------------
     // Dispatch: Add Entry to ROB
 
@@ -411,6 +425,9 @@ class Rob(
     io.commit.uops(w)   := rob_uop(com_idx)
     io.commit.debug_insts(w) := rob_debug_inst_rdata(w)
 
+    io.walk.valids(w) := walk_val(w)
+    io.walk.uops(w)   := walk_uop(com_idx)
+
     // We unbusy branches in b1, but its easier to mark the taken/provider src in b2,
     // when the branch might be committing
     when (io.brupdate.b2.mispredict &&
@@ -459,6 +476,17 @@ class Rob(
         // clear speculation bit even on correct speculation
         rob_uop(i).br_mask := GetNewBrMask(io.brupdate, br_mask)
       }
+    }
+
+    for (i <- 0 until numRobRows) {
+      val br_mask = rob_uop(i).br_mask
+          
+    when (IsKilledByBranch(io.brupdate, br_mask))
+      {
+        walk_val(i) := false.B
+        walk_uop(i.U) := rob_uop(i.U)
+        walk_uop(i.U).debug_inst := BUBBLE
+      } 
     }
 
 
