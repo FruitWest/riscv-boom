@@ -76,8 +76,15 @@ class RenameMapTable(
   val remap_table = Wire(Vec(plWidth+1, Vec(numLregs, UInt(pregSz.W))))
 
   // Uops requesting changes to the map table.
-  val remap_pdsts = io.remap_reqs map (_.pdst) | io.walk_reqs map (_.pdst)
-  val remap_ldsts_oh = io.remap_reqs map (req => UIntToOH(req.ldst) & Fill(numLregs, req.valid.asUInt)) | io.walk_reqs map (req => UIntToOH(req.ldst) & Fill(numLregs, req.valid.asUInt))
+  val remap_pdsts_0 = io.remap_reqs map (_.pdst)
+  val remap_pdsts_1 = io.walk_reqs map (_.pdst)
+  val remap_pdsts = Wire(Vec(1, UInt(numLregs.W)))
+  remap_pdsts zip remap_pdsts_1 zip remap_pdsts_0 map {case((a,b),c) => a := b | c}
+  val remap_ldsts_oh_0 = io.remap_reqs map (req => UIntToOH(req.ldst) & Fill(numLregs, req.valid.asUInt))
+  val remap_ldsts_oh_1 = io.walk_reqs map (req => UIntToOH(req.ldst) & Fill(numLregs, req.valid.asUInt))
+  val remap_ldsts_oh = Wire(Vec(1, UInt(numLregs.W)))
+  remap_ldsts_oh zip remap_ldsts_oh_0 zip remap_ldsts_oh_1 map {case((a,b),c) => a := b | c}
+
 
   // Figure out the new mappings seen by each pipeline slot.
   for (i <- 0 until numLregs) {
@@ -108,7 +115,7 @@ class RenameMapTable(
   // } .otherwise {
     // Update mappings.
     map_table := remap_table(plWidth)
-  }
+  // }
 
   // Read out mappings.
   for (i <- 0 until plWidth) {

@@ -326,7 +326,7 @@ class Rob(
     val rob_debug_wdata = Mem(numRobRows, UInt(xLen.W))
 
     val walk_uop       = Reg(Vec(numRobRows, new MicroOp()))
-    val rob_val        = RegInit(VecInit(Seq.fill(numRobRows){false.B}))
+    val walk_val        = RegInit(VecInit(Seq.fill(numRobRows){false.B}))
 
     //-----------------------------------------------
     // Dispatch: Add Entry to ROB
@@ -480,13 +480,13 @@ class Rob(
 
     for (i <- 0 until numRobRows) {
       val br_mask = rob_uop(i).br_mask
-          
-    when (IsKilledByBranch(io.brupdate, br_mask))
+
+      when (IsKilledByBranch(io.brupdate, br_mask))
       {
         walk_val(i) := false.B
         walk_uop(i.U) := rob_uop(i.U)
         walk_uop(i.U).debug_inst := BUBBLE
-      } 
+      }
     }
 
 

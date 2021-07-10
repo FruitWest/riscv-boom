@@ -236,6 +236,7 @@ class RenameStage(
   // Commit/Rollback
   val com_valids      = Wire(Vec(plWidth, Bool()))
   val rbk_valids      = Wire(Vec(plWidth, Bool()))
+  val walk_valids      = Wire(Vec(plWidth, Bool()))
 
   for (w <- 0 until plWidth) {
     ren2_alloc_reqs(w)    := ren2_uops(w).ldst_val && ren2_uops(w).dst_rtype === rtype && ren2_fire(w)
@@ -244,6 +245,8 @@ class RenameStage(
     com_valids(w)         := io.com_uops(w).ldst_val && io.com_uops(w).dst_rtype === rtype && io.com_valids(w)
     rbk_valids(w)         := io.com_uops(w).ldst_val && io.com_uops(w).dst_rtype === rtype && io.rbk_valids(w)
     ren2_br_tags(w).bits  := ren2_uops(w).br_tag
+    walk_valids(w)        := io.walk_uops(w).ldst_val && io.walk_uops(w).dst_rtype === rtype && io.walk_valids(w)
+
   }
 
   //-------------------------------------------------------------
@@ -252,6 +255,7 @@ class RenameStage(
   // Maptable inputs.
   val map_reqs   = Wire(Vec(plWidth, new MapReq(lregSz)))
   val remap_reqs = Wire(Vec(plWidth, new RemapReq(lregSz, pregSz)))
+  val walk_reqs  = Wire(Vec(plWidth, new RemapReq(lregSz, pregSz)))
 
   // Generate maptable requests.
   for ((((ren1,ren2),com),w) <- ren1_uops zip ren2_uops zip io.com_uops.reverse zipWithIndex) {
@@ -262,13 +266,25 @@ class RenameStage(
 
     remap_reqs(w).ldst := Mux(io.rollback, com.ldst      , ren2.ldst)
     remap_reqs(w).pdst := Mux(io.rollback, com.stale_pdst, ren2.pdst)
+
+
   }
+
+  for ((((ren1,ren2),walk),w) <- ren1_uops zip ren2_uops zip io.walk_uops.reverse zipWithIndex) {
+    walk_reqs(w).ldst := walk.ldst
+    walk_reqs(w).pdst := walk.stale_pdst
+  }
+
   ren2_alloc_reqs zip rbk_valids.reverse zip remap_reqs map {
     case ((a,r),rr) => rr.valid := a || r}
+
+  walk_reqs zip walk_valids map
+  {case (d,w) => d.valid := w} 
 
   // Hook up inputs.
   maptable.io.map_reqs    := map_reqs
   maptable.io.remap_reqs  := remap_reqs
+  maptable.io.walk_reqs  := walk_reqs
   maptable.io.ren_br_tags := ren2_br_tags
   maptable.io.brupdate      := io.brupdate
   maptable.io.rollback    := io.rollback
@@ -294,6 +310,12 @@ class RenameStage(
     {case ((d,c),r) => d.valid := c || r}
   freelist.io.dealloc_pregs zip io.com_uops map
     {case (d,c) => d.bits := Mux(io.rollback, c.pdst, c.stale_pdst)}
+
+  freelist.io.walk_pregs zip walk_valids map
+    {case (d,w) => d.valid := w} 
+  freelist.io.walk_pregs zip io.walk_uops map
+    {case (d,c) => d.bits := Mux(io.rollback, c.pdst, c.stale_pdst)}
+
   freelist.io.ren_br_tags := ren2_br_tags
   freelist.io.brupdate := io.brupdate
   freelist.io.debug.pipeline_empty := io.debug_rob_empty

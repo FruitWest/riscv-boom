@@ -621,6 +621,10 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
 
     rename.io.com_valids := rob.io.commit.valids
     rename.io.com_uops := rob.io.commit.uops
+
+    rename.io.walk_valids := rob.io.walk.valids
+    rename.io.walk_uops := rob.io.walk.uops
+
     rename.io.rbk_valids := rob.io.commit.rbk_valids
     rename.io.rollback := rob.io.commit.rollback
   }
