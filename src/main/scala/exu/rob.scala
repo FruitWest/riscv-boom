@@ -483,7 +483,7 @@ class Rob(
 
       when (IsKilledByBranch(io.brupdate, br_mask))
       {
-        walk_val(i) := false.B
+        walk_val(i) := true.B
         walk_uop(i.U) := rob_uop(i.U)
         walk_uop(i.U).debug_inst := BUBBLE
       }
