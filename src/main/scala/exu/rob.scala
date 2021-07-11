@@ -486,6 +486,8 @@ class Rob(
         walk_val(i) := true.B
         walk_uop(i.U) := rob_uop(i.U)
         walk_uop(i.U).debug_inst := BUBBLE
+      }.elsewhen (walk_val(i)) {
+        walk_val(i) := false.B
       }
     }
 
